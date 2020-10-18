@@ -261,3 +261,15 @@ LOAD DATA CONCURRENT INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/traba
 INTO TABLE trabaja 
 FIELDS TERMINATED BY ','
 LINES TERMINATED BY '\n';
+
+LOAD DATA CONCURRENT INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/tienda.csv' 
+INTO TABLE tienda 
+FIELDS TERMINATED BY ','
+LINES TERMINATED BY '\n';
+
+INSERT INTO categorias (NOMBRE) VALUES
+('Arte'), ('Automocion'), ('Belleza'),
+('Casa y hogar'), ('Entretenimiento'),
+('Social'), ('Compras'), ('Libros'),
+('Educacion'), ('Empresas'),
+('Estilo de vida'), ('Finanzas'), ('Fotografia');

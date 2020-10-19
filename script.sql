@@ -273,3 +273,33 @@ INSERT INTO categorias (NOMBRE) VALUES
 ('Social'), ('Compras'), ('Libros'),
 ('Educacion'), ('Empresas'),
 ('Estilo de vida'), ('Finanzas'), ('Fotografia');
+
+LOAD DATA CONCURRENT INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/aplicacion.csv' 
+INTO TABLE aplicacion 
+FIELDS TERMINATED BY ','
+LINES TERMINATED BY '\n';
+
+LOAD DATA CONCURRENT INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/realiza.csv' 
+INTO TABLE realiza 
+FIELDS TERMINATED BY ','
+LINES TERMINATED BY '\n';
+
+LOAD DATA CONCURRENT INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/contiene.csv' 
+INTO TABLE contiene 
+FIELDS TERMINATED BY ','
+LINES TERMINATED BY '\n';
+
+LOAD DATA CONCURRENT INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/categorias_aplicacion.csv' 
+INTO TABLE categorias_aplicacion 
+FIELDS TERMINATED BY ','
+LINES TERMINATED BY '\n';
+
+LOAD DATA CONCURRENT INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/usuario.csv' 
+INTO TABLE usuario 
+FIELDS TERMINATED BY ','
+LINES TERMINATED BY '\n';
+
+LOAD DATA CONCURRENT INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/descarga.csv' 
+INTO TABLE descarga 
+FIELDS TERMINATED BY ','
+LINES TERMINATED BY '\n';

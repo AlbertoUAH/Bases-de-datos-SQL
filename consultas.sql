@@ -77,4 +77,11 @@ GROUP BY empleado.TLFNO_MOVIL
 HAVING NUM_DESCARGAS >= 7
 ORDER BY NUM_DESCARGAS DESC;
 
--- Consulta 12.
+-- Consulta 12. Obtener la aplicacion que menos tiempo haya requerido (en meses) y que haya obtenido un mayor numero de descargas
+SELECT distinct(aplicacion.NOMBRE), timestampdiff(month, FECHA_INI, FECHA_FIN) as MESES, count(descarga.NOMBRE) as DESCARGAS
+FROM aplicacion INNER JOIN descarga USING(NOMBRE)
+GROUP BY aplicacion.nombre
+ORDER BY MESES, DESCARGAS DESC
+LIMIT 1;
+
+-- Consulta 13. 

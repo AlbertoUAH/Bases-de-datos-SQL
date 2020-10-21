@@ -19,9 +19,6 @@ DROP TABLE IF EXISTS EMPLEADO;
 -- 3. Creamos inicialmente las tablas
 --  EMPRESA
 /*
-	Nota: el anno de creacion de la empresa debe ser
-	menor o igual al anno actual (CHECK).
-	
 	Se ha elegido como PK el VAT de la empresa
 	dado que una empresa, salvo que se patente,
 	pueden tener el mismo nombre, mientras que el VAT
@@ -29,7 +26,7 @@ DROP TABLE IF EXISTS EMPLEADO;
 */
 CREATE TABLE EMPRESA (
   VAT VARCHAR(12) PRIMARY KEY,
-  NOMBRE VARCHAR(50) UNIQUE NOT NULL,
+  NOMBRE VARCHAR(50) NOT NULL,
   PAIS_TRIBUTARIO VARCHAR(35) NOT NULL,
   ANNO_CREACION INT UNSIGNED NOT NULL,
   CORREO VARCHAR(50) UNIQUE NOT NULL,
@@ -54,18 +51,18 @@ CREATE TABLE EMPLEADO (
 -- TRABAJA
 /*
 	Nota: debe comprobarse (CHECK) que la fecha de inicio
-	sea menor a la fecha de fin del trabajo. Ademas,
-	la fecha de inicio debe ser menor a la fecha actual, 
-	mientras que la fecha de fin debe ser menor o igual.
+	sea menor a la fecha de fin del trabajo.
 
 	Todos los elementos de la tabla son PK (salvo FECHA_FIN), 
 	dado que un empleado no solo se identifica por su
 	DNI y VAT de la empresa en la que trabaja, sino
 	ademas por el intervalo de fechas en el que trabajo
 	en dicha empresa.
-	- Si el DNI del empleado o el VAT de la empresa
-	desaparece, no se eliminan las filas (manteniendo
-	un historico de datos)
+	- Si el DNI del empleado desaparece, sus valores en la tabla
+	se eliminan en cascada, pues estaria haciendo referencia a un
+	empleado que ya no existe. Por el contrario, si el codigo de la
+	empresa desaparece, la tabla se mantendria igual (RESTRICT), lo
+	que permitiria conocer la experiencia profesional de cada empleado
 	- Si el DNI o VAT se actualiza, la actualización también
 	se produce en dicha tabla
 */
@@ -78,7 +75,7 @@ CREATE TABLE TRABAJA (
   CHECK (FECHA_INI < FECHA_FIN),
     FOREIGN KEY (DNI)
     REFERENCES EMPLEADO (DNI)
-    ON DELETE RESTRICT
+    ON DELETE CASCADE
     ON UPDATE CASCADE,
     FOREIGN KEY (VAT)
     REFERENCES EMPRESA (VAT)
@@ -88,10 +85,8 @@ CREATE TABLE TRABAJA (
 -- APLICACION
 /*
 	Nota: debe comprobarse (CHECK) que la fecha de inicio
-	sea menor a la fecha de fin del proyecto. Ademas,
-	la fecha de inicio debe ser menor a la fecha actual, 
-	mientras que la fecha de fin debe ser menor o igual.
-	Por ultimo, el espacio de memoria de la aplicacion debe
+	sea menor a la fecha de fin del proyecto.
+	Ademas, el espacio de memoria de la aplicacion debe
 	ser mayor que cero.
 	
 	La columna espacio esta expresada en MB.
@@ -122,9 +117,12 @@ CREATE TABLE APLICACION (
 	Las claves foráneas son tambien PKs, con el
 	objetivo de identificar que aplicaciones realiza
 	cada empleado, y viceversa.
-	- Si el DNI del empleado o el nombre de la aplicacion
-	desaparece, no se eliminan las filas (manteniendo
-	un historico de datos)
+	- Si el DNI del empleado desaparece, sus valores en la tabla
+	se eliminan en cascada, pues estaria haciendo referencia a un
+	empleado que ya no existe. Por el contrario, si el nombre de la
+	aplicacion desaparece, la tabla se mantendria igual (RESTRICT), dado
+	que la aplicacion podria seguir estando disponible a los usuarios,
+	independientemente del responsable.
 	- Si el DNI o el nombre se actualiza, la actualizacion tambien
 	se produce en dicha tabla
 */
@@ -134,7 +132,7 @@ CREATE TABLE REALIZA (
   PRIMARY KEY (DNI, NOMBRE),
     FOREIGN KEY (DNI)
     REFERENCES EMPLEADO (DNI)
-    ON DELETE RESTRICT
+    ON DELETE CASCADE
     ON UPDATE CASCADE,
     FOREIGN KEY (NOMBRE)
     REFERENCES  APLICACION (NOMBRE)
@@ -383,9 +381,12 @@ CREATE TRIGGER comprobar_fecha_descarga_BI
 BEFORE INSERT
 ON descarga FOR EACH ROW
 BEGIN
-    CALL comprobar_fecha(NEW.FEC_DESCARGA);
+	IF NEW.FEC_DESCARGA < (SELECT FECHA_FIN FROM APLICACION WHERE NOMBRE = NEW.NOMBRE) THEN
+		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Error. La fecha es superior a la fecha de fin de la aplicacion';
+	ELSE
+		CALL comprobar_fecha(NEW.FEC_DESCARGA);
+	END IF;
 END$$
-
 
 /*
 	Mediante la funcion comprobar_letra_dni, este
@@ -586,18 +587,24 @@ GROUP BY r.DNI
 HAVING count(r.DNI) > 1)) AND CORREO LIKE '%@gmail%';
 
 -- 7. Una vez definidos los triggers, se muestran algunos ejemplos (error)
--- Prueba comprobar_trabaja_en_aplicacion_BI
-INSERT INTO empleado VALUES('54003003S','Salvadoeer23@gmail.com',990252340,650829990,'C. Comercial Espacio Leon','122','09019');
-INSERT INTO aplicacion VALUES('Instagram',16568,'2013/07/10','2020/10/20',54,0,'54003003S');
 
 -- Prueba comprobar_letra_dni_BI
-INSERT INTO empleado VALUES('54003001S','Salvadoeer23@gmail.com',990252340,650829990,'C. Comercial Espacio Leon','122','09019');
+-- DNI Valido
+INSERT INTO empleado VALUES('10195062J','Alberto23@gmail.com',990252340,650829997,'C. Comercial Espacio Leon','122','09019');
+-- DNI No valido
+INSERT INTO empleado VALUES('54053101S','Salvadoeer23@gmail.com',990252340,650829990,'C. Comercial Espacio Leon','122','09019');
+
+-- Prueba comprobar_trabaja_en_aplicacion_BI
+INSERT INTO aplicacion VALUES('Instagram',16568,'2013/07/10','2020/10/20',54,0,'10195062J');
 
 -- Prueba comprobar_fecha_fin_trabaja_BI
-INSERT INTO trabaja VALUES('10509293B','ES12345600','2013/07/10','2020/10/21');
+INSERT INTO trabaja VALUES('56813892M','ES12345600','2013/07/10','2021/10/21');
 
 -- Prueba comprobar_fecha_fin_aplicacion_BI
-INSERT INTO aplicacion VALUES('Instagram',16568,'2013/07/10','2020/10/21',54,0,'10035998X');
+INSERT INTO aplicacion VALUES('Instagram',16568,'2013/07/10','2021/10/21',54,0,'56813892M');
 
 -- Prueba comprobar_fecha_descarga_BI
-INSERT INTO descarga VALUES('663295','RTNoticias',0,43000744,'2020/10/21','Definitivamente odio RTNoticias!!!!!!');
+-- FEC_DESCARGA > FECHA ACTUAL
+INSERT INTO descarga VALUES('663295','RTNoticias',0,43000744,'2021/10/21','Definitivamente odio RTNoticias!!!!!!');
+-- FEC_DESCARGA < FECHA_FIN (aplicacion)
+INSERT INTO descarga VALUES('663295','RTNoticias',0,43000744,'2019/08/01','Definitivamente odio RTNoticias!!!!!!');

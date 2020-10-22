@@ -8,10 +8,10 @@ DROP TABLE IF EXISTS TRABAJA;
 DROP TABLE IF EXISTS REALIZA;
 DROP TABLE IF EXISTS CONTIENE;
 DROP TABLE IF EXISTS DESCARGA;
-DROP TABLE IF EXISTS CATEGORIAS_APLICACION;
+DROP TABLE IF EXISTS CATEGORIA_APLICACION;
 DROP TABLE IF EXISTS EMPRESA;
 DROP TABLE IF EXISTS TIENDA;
-DROP TABLE IF EXISTS CATEGORIAS;
+DROP TABLE IF EXISTS CATEGORIA;
 DROP TABLE IF EXISTS USUARIO;
 DROP TABLE IF EXISTS APLICACION;
 DROP TABLE IF EXISTS EMPLEADO;
@@ -171,23 +171,23 @@ CREATE TABLE CONTIENE (
     ON DELETE CASCADE
     ON UPDATE CASCADE);
 
--- CATEGORIAS 
-CREATE TABLE CATEGORIAS (
+-- CATEGORIA
+CREATE TABLE CATEGORIA (
   ID_CATEGORIA INT AUTO_INCREMENT PRIMARY KEY,
   NOMBRE VARCHAR(20) UNIQUE NOT NULL);
 
--- CATEGORIAS_APLICACION
+-- CATEGORIA_APLICACION
 /*
 	Las claves foráneas son tambien PKs, con el
 	objetivo de identificar que categorias estan
 	asociadas a cada aplicacion.
 	- Si la categoria o aplicacion desaparecen, en esta situacion 
-        se eliminarian los campos en CATEGORIAS_APLICACION, dado 
+        se eliminarian los campos en CATEGORIA_APLICACION, dado 
         que dejarian de existir (desde el punto de vista del usuario final)
 	- Si el nombre de la categoria o tienda se actualiza, la actualización 
 	también se produce en dicha tabla
 */
-CREATE TABLE CATEGORIAS_APLICACION (
+CREATE TABLE CATEGORIA_APLICACION (
   NOMBRE VARCHAR(35) NOT NULL,
   ID_CATEGORIA INT NOT NULL,
   PRIMARY KEY (NOMBRE, ID_CATEGORIA),
@@ -196,7 +196,7 @@ CREATE TABLE CATEGORIAS_APLICACION (
     ON DELETE CASCADE
     ON UPDATE CASCADE,
     FOREIGN KEY (ID_CATEGORIA)
-    REFERENCES CATEGORIAS (ID_CATEGORIA)
+    REFERENCES CATEGORIA (ID_CATEGORIA)
     ON DELETE CASCADE
     ON UPDATE CASCADE);
 
@@ -242,9 +242,10 @@ CREATE TABLE DESCARGA (
     REFERENCES APLICACION (NOMBRE)
     ON DELETE RESTRICT
     ON UPDATE CASCADE);
-	
+
+-- ------------------------------------------------------------------------------------------------------------------------
 -- 4. Carga datos
--- Salvo la tabla categorias, el resto de tablas se cargan mediante ficheros .csv
+-- Salvo la tabla categoria, el resto de tablas se cargan mediante ficheros .csv
 LOAD DATA CONCURRENT INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/empresas.csv' 
 INTO TABLE empresa 
 FIELDS TERMINATED BY ','
@@ -265,7 +266,7 @@ INTO TABLE tienda
 FIELDS TERMINATED BY ','
 LINES TERMINATED BY '\n';
 
-INSERT INTO categorias (NOMBRE) VALUES
+INSERT INTO categoria (NOMBRE) VALUES
 ('Arte'), ('Automocion'), ('Belleza'),
 ('Casa y hogar'), ('Entretenimiento'),
 ('Social'), ('Compras'), ('Libros'),
@@ -287,8 +288,8 @@ INTO TABLE contiene
 FIELDS TERMINATED BY ','
 LINES TERMINATED BY '\n';
 
-LOAD DATA CONCURRENT INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/categorias_aplicacion.csv' 
-INTO TABLE categorias_aplicacion 
+LOAD DATA CONCURRENT INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/categoria_aplicacion.csv' 
+INTO TABLE categoria_aplicacion 
 FIELDS TERMINATED BY ','
 LINES TERMINATED BY '\n';
 
@@ -302,8 +303,9 @@ INTO TABLE descarga
 FIELDS TERMINATED BY ','
 LINES TERMINATED BY '\n';
 
-
+-- ------------------------------------------------------------------------------------------------------------------------
 -- 5. Creacion procedures, funciones y triggers
+-- Borramos los triggers, procedure y function (si existen)
 DROP TRIGGER IF EXISTS comprobar_fecha_fin_trabaja_BI;
 DROP TRIGGER IF EXISTS comprobar_fecha_fin_aplicacion_BI;
 DROP TRIGGER IF EXISTS comprobar_fecha_descarga_BI;
@@ -314,7 +316,6 @@ DROP PROCEDURE IF EXISTS comprobar_fecha;
 DROP FUNCTION IF EXISTS comprobar_letra_dni;
 
 SET GLOBAL log_bin_trust_function_creators = 1;
-
 /*
 	Procedimiento encargado de comprobar si
 	una fecha pasada como parametro es mayor
@@ -428,6 +429,7 @@ END$$
 
 DELIMITER ;
 
+-- ------------------------------------------------------------------------------------------------------------------------
 -- 6. Consultas
 USE apps_moviles;
 
@@ -521,7 +523,7 @@ LIMIT 3;
 
 -- Consulta 11. Obtener las categorias con una puntuacion acumulada en sus aplicaciones mayor a 100
 SELECT c.NOMBRE, sum(d.PUNTUACION) as PUNTUACION_ACUMULADA
-FROM categorias AS c INNER JOIN categorias_aplicacion AS c_a ON c.ID_CATEGORIA = c_a.ID_CATEGORIA
+FROM categoria AS c INNER JOIN categoria_aplicacion AS c_a ON c.ID_CATEGORIA = c_a.ID_CATEGORIA
 INNER JOIN aplicacion AS a ON c_a.NOMBRE = a.NOMBRE
 INNER JOIN descarga AS d ON a.NOMBRE = d.NOMBRE
 GROUP BY c.NOMBRE
@@ -570,8 +572,8 @@ WHERE DNI IN
 ((SELECT distinct(r.DNI)
 FROM realiza AS r
 INNER JOIN aplicacion AS a ON r.NOMBRE = a.NOMBRE
-INNER JOIN categorias_aplicacion AS c_a ON a.NOMBRE = c_a.NOMBRE
-INNER JOIN categorias AS c ON c_a.ID_CATEGORIA = c.ID_CATEGORIA
+INNER JOIN categoria_aplicacion AS c_a ON a.NOMBRE = c_a.NOMBRE
+INNER JOIN categoria AS c ON c_a.ID_CATEGORIA = c.ID_CATEGORIA
 WHERE c.NOMBRE = 'Estilo de vida' AND a.PRECIO = 0 AND r.DNI IN 
 (SELECT distinct(t.DNI)
 FROM trabaja AS t
@@ -582,12 +584,13 @@ UNION
 
 (SELECT distinct(r.DNI)
 FROM realiza AS r INNER JOIN aplicacion AS a ON r.NOMBRE = a.NOMBRE
-INNER JOIN categorias_aplicacion AS c_a ON a.NOMBRE = c_a.NOMBRE
-INNER JOIN categorias AS c ON c_a.ID_CATEGORIA = c.ID_CATEGORIA
+INNER JOIN categoria_aplicacion AS c_a ON a.NOMBRE = c_a.NOMBRE
+INNER JOIN categoria AS c ON c_a.ID_CATEGORIA = c.ID_CATEGORIA
 WHERE c.NOMBRE = 'Entretenimiento'  AND a.PRECIO = 0
 GROUP BY r.DNI
 HAVING count(r.DNI) > 1)) AND CORREO NOT LIKE '%@gmail%';
 
+-- ------------------------------------------------------------------------------------------------------------------------
 -- 7. Una vez definidos los triggers, se muestran algunos ejemplos (error)
 
 -- Prueba comprobar_letra_dni_BI

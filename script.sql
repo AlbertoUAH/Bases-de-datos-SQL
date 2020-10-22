@@ -1,9 +1,9 @@
--- 1. Eliminamos la base de datos, si existe, y creamos una nueva
+-- 1. ELIMINAMOS LA BASE DE DATOS, SI EXISTE, Y CREAMOS UNA NUEVA
 DROP DATABASE IF EXISTS APPS_MOVILES;
 CREATE DATABASE APPS_MOVILES;
 USE APPS_MOVILES;
 
--- 2. Borramos las tablas, si existen
+-- 2. BORRAMOS LAS TABLAS, SI EXISTEN
 DROP TABLE IF EXISTS TRABAJA;
 DROP TABLE IF EXISTS REALIZA;
 DROP TABLE IF EXISTS CONTIENE;
@@ -16,11 +16,11 @@ DROP TABLE IF EXISTS USUARIO;
 DROP TABLE IF EXISTS APLICACION;
 DROP TABLE IF EXISTS EMPLEADO;
 
--- 3. Creamos inicialmente las tablas
+-- 3. CREAMOS INICIALMENTE LAS TABLAS
 --  EMPRESA
 /*
 	Se ha elegido como PK el VAT de la empresa
-	dado que una empresa, salvo que se patente,
+	dado que una empresa, salvo que se registre,
 	pueden tener el mismo nombre, mientras que el VAT
 	es un identificativo unico
 */
@@ -45,7 +45,7 @@ CREATE TABLE EMPLEADO (
   TLFNO_FIJO INT UNSIGNED NOT NULL,
   TLFNO_MOVIL INT UNSIGNED UNIQUE NOT NULL,
   CALLE VARCHAR(80) NOT NULL,
-  NUMERO VARCHAR(3) NOT NULL DEFAULT 's/n',
+  NUMERO VARCHAR(3) DEFAULT 's/n',
   CP CHAR(5) NOT NULL);
 
 -- TRABAJA
@@ -56,15 +56,16 @@ CREATE TABLE EMPLEADO (
 	Todos los elementos de la tabla son PK (salvo FECHA_FIN), 
 	dado que un empleado no solo se identifica por su
 	DNI y VAT de la empresa en la que trabaja, sino
-	ademas por el intervalo de fechas en el que trabajo
+	ademas por el intervalo de tiempo en el que trabajo
 	en dicha empresa.
 	- Si el DNI del empleado desaparece, sus valores en la tabla
 	se eliminan en cascada, pues estaria haciendo referencia a un
-	empleado que ya no existe. Por el contrario, si el codigo de la
-	empresa desaparece, la tabla se mantendria igual (RESTRICT), lo
-	que permitiria conocer la experiencia profesional de cada empleado
+	empleado que ya no existe (CASCADE).
+	Por el contrario, si el codigo de la empresa desaparece, la tabla 
+	se mantendria igual (RESTRICT), lo que permitiria conocer la 
+	experiencia profesional de cada empleado
 	- Si el DNI o VAT se actualiza, la actualización también
-	se produce en dicha tabla
+	se produce en dicha tabla (CASCADE)
 */
 CREATE TABLE TRABAJA (
   DNI CHAR(9) NOT NULL,
@@ -93,9 +94,9 @@ CREATE TABLE TRABAJA (
 	- Si el DNI del empleado que dirige la aplicacion
 	desaparece, la aplicacion no desapareceria
 	(dado que continuaria funcionando y estando
-	disponible en tienda)
+	disponible en tienda) (RESTRICT)
 	- Si el DNI del jefe de proyecto se actualiza, la
-	actualizacion tambien se produce en dicha tabla
+	actualizacion tambien se produce en dicha tabla (CASCADE)
 */
 CREATE TABLE APLICACION (
   NOMBRE VARCHAR(35) PRIMARY KEY,
@@ -119,12 +120,13 @@ CREATE TABLE APLICACION (
 	cada empleado, y viceversa.
 	- Si el DNI del empleado desaparece, sus valores en la tabla
 	se eliminan en cascada, pues estaria haciendo referencia a un
-	empleado que ya no existe. Por el contrario, si el nombre de la
-	aplicacion desaparece, la tabla se mantendria igual (RESTRICT), dado
-	que la aplicacion podria seguir estando disponible a los usuarios,
-	independientemente del responsable.
+	empleado que ya no existe (CASCADE). 
+	Por el contrario, si el nombre de la aplicacion desaparece, 
+	la tabla se mantendria igual (RESTRICT), dado que la aplicacion 
+	podria seguir estando disponible a los usuarios, independientemente 
+	del responsable.
 	- Si el DNI o el nombre se actualiza, la actualizacion tambien
-	se produce en dicha tabla
+	se produce en dicha tabla (CASCADE)
 */
 CREATE TABLE REALIZA (
   DNI CHAR(9) NOT NULL,
@@ -140,6 +142,10 @@ CREATE TABLE REALIZA (
     ON UPDATE CASCADE);
 
 -- TIENDA
+/*
+	El campo GESTOR no tiene porque ser unico (mas de una tienda
+	podria estar gestionada por una misma empresa)
+*/	
 CREATE TABLE TIENDA (
   NOMBRE VARCHAR(20) PRIMARY KEY,
   GESTOR VARCHAR(20) NOT NULL,
@@ -154,9 +160,9 @@ CREATE TABLE TIENDA (
 	desaparece, en esta situacion si se eliminarian los campos
 	en CONTIENE, dado que desde el punto de vista del usuario,
 	si la tienda o la aplicacion desapareciera, no podría descargar
-	dicha app
+	dicha app (CASCADE)
 	- Si el nombre de la tienda o aplicacion se actualiza, la actualización 
-	también se produce en dicha tabla
+	también se produce en dicha tabla (CASCADE)
 */
 CREATE TABLE CONTIENE (
   NOMBRE_TIENDA VARCHAR(20) NOT NULL,
@@ -172,6 +178,7 @@ CREATE TABLE CONTIENE (
     ON UPDATE CASCADE);
 
 -- CATEGORIA
+-- El campo ID_CATEGORIA se auto-incrementa, lo que permite insertar unicamente el campo NOMBRE
 CREATE TABLE CATEGORIA (
   ID_CATEGORIA INT AUTO_INCREMENT PRIMARY KEY,
   NOMBRE VARCHAR(20) UNIQUE NOT NULL);
@@ -182,10 +189,10 @@ CREATE TABLE CATEGORIA (
 	objetivo de identificar que categorias estan
 	asociadas a cada aplicacion.
 	- Si la categoria o aplicacion desaparecen, en esta situacion 
-        se eliminarian los campos en CATEGORIA_APLICACION, dado 
-        que dejarian de existir (desde el punto de vista del usuario final)
+    se eliminarian los campos en CATEGORIA_APLICACION, dado 
+    que dejarian de existir (desde el punto de vista del usuario final) (CASCADE)
 	- Si el nombre de la categoria o tienda se actualiza, la actualización 
-	también se produce en dicha tabla
+	también se produce en dicha tabla (CASCADE)
 */
 CREATE TABLE CATEGORIA_APLICACION (
   NOMBRE VARCHAR(35) NOT NULL,
@@ -205,15 +212,14 @@ CREATE TABLE USUARIO (
   NUM_CUENTA INT PRIMARY KEY,
   NOMBRE VARCHAR(50) UNIQUE NOT NULL,
   CALLE VARCHAR(80) NOT NULL,
-  NUMERO VARCHAR(3) NULL DEFAULT 's/n',
+  NUMERO VARCHAR(3) DEFAULT 's/n',
   CP CHAR(5) NOT NULL,
   PAIS VARCHAR(35) NOT NULL);
 
 -- DESCARGA
 /*
 	Nota: debe comprobarse (CHECK) que la puntuacion
-	este comprendida entre 0 y 5, ademas de que la fecha
-	de descarga sea menor o igual a la fecha actual.
+	este comprendida entre 0 y 5.
 	
 	Las claves foráneas son tambien PKs, con el
 	objetivo de identificar que usuarios descargan
@@ -221,17 +227,20 @@ CREATE TABLE USUARIO (
 	dos o mas veces la misma aplicacion.
 	- Si el usuario o aplicacion desaparecen, con el fin
 	de mantener un historico de descargas, no se eliminan
-	las filas	
+	las filas (RESTRICT).
+	De este modo se permite conocer, por ejemplo,
+	el numero de descargas realizadas en una fecha determinada,
+	incluso en caso de que el usuario o la aplicacion ya no existan
 	- Si el nombre de usuario o aplicacion se modifican, 
-	la actualización también se produce en dicha tabla
+	la actualización también se produce en dicha tabla (CASCADE)
 */
 CREATE TABLE DESCARGA (
   NUM_CUENTA INT NOT NULL,
   NOMBRE VARCHAR(35) NOT NULL,
-  PUNTUACION INT UNSIGNED,
+  PUNTUACION INT UNSIGNED NULL,
   NUM_MOVIL INT UNSIGNED NOT NULL,
   FEC_DESCARGA DATE NOT NULL,
-  COMENTARIO TEXT,
+  COMENTARIO TEXT NULL,
   PRIMARY KEY (NUM_CUENTA, NOMBRE),
   CHECK (PUNTUACION BETWEEN 0 AND 5),
     FOREIGN KEY (NUM_CUENTA)
@@ -244,7 +253,8 @@ CREATE TABLE DESCARGA (
     ON UPDATE CASCADE);
 
 -- ------------------------------------------------------------------------------------------------------------------------
--- 4. Carga datos
+-- 4. CARGA DATOS
+SET GLOBAL local_infile ='ON';
 -- Salvo la tabla categoria, el resto de tablas se cargan mediante ficheros .csv
 LOAD DATA CONCURRENT INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/empresas.csv' 
 INTO TABLE empresa 
@@ -304,7 +314,7 @@ FIELDS TERMINATED BY ','
 LINES TERMINATED BY '\n';
 
 -- ------------------------------------------------------------------------------------------------------------------------
--- 5. Creacion procedures, funciones y triggers
+-- 5. CREACION PROCEDURES, FUNCIONES Y TRIGGERS
 -- Borramos los triggers, procedure y function (si existen)
 DROP TRIGGER IF EXISTS comprobar_fecha_fin_trabaja_BI;
 DROP TRIGGER IF EXISTS comprobar_fecha_fin_aplicacion_BI;
@@ -336,6 +346,7 @@ END$$
 	pasado como parametro es valido o no. Para ello extrae
 	los numeros del DNI y, dividiendo entre 23, devuelve la letra
 	correspondiente.
+	Fuente: https://es.wikibooks.org/wiki/Algoritmia/Algoritmo_para_obtener_la_letra_del_NIF
 
 */
 CREATE FUNCTION comprobar_letra_dni(dni CHAR(9))
@@ -430,8 +441,7 @@ END$$
 DELIMITER ;
 
 -- ------------------------------------------------------------------------------------------------------------------------
--- 6. Consultas
-USE apps_moviles;
+-- 6. CONSULTAS
 
 -- Consulta 1. Obtener la fecha en la que se realizan mas descargas
 SELECT FEC_DESCARGA, count(FEC_DESCARGA) as NUM_DESCARGAS
@@ -589,27 +599,3 @@ INNER JOIN categoria AS c ON c_a.ID_CATEGORIA = c.ID_CATEGORIA
 WHERE c.NOMBRE = 'Entretenimiento'  AND a.PRECIO = 0
 GROUP BY r.DNI
 HAVING count(r.DNI) > 1)) AND CORREO NOT LIKE '%@gmail%';
-
--- ------------------------------------------------------------------------------------------------------------------------
--- 7. Una vez definidos los triggers, se muestran algunos ejemplos (error)
-
--- Prueba comprobar_letra_dni_BI
--- DNI Valido
-INSERT INTO empleado VALUES('10195062J','Alberto23@gmail.com',990252340,650829997,'C. Comercial Espacio Leon','122','09019');
--- DNI No valido
-INSERT INTO empleado VALUES('54053101S','Salvadoeer23@gmail.com',990252340,650829990,'C. Comercial Espacio Leon','122','09019');
-
--- Prueba comprobar_trabaja_en_aplicacion_BI
-INSERT INTO aplicacion VALUES('Instagram',16568,'2013/07/10','2020/10/20',54,0,'10195062J');
-
--- Prueba comprobar_fecha_fin_trabaja_BI
-INSERT INTO trabaja VALUES('56813892M','ES12345600','2013/07/10','2021/10/21');
-
--- Prueba comprobar_fecha_fin_aplicacion_BI
-INSERT INTO aplicacion VALUES('Instagram',16568,'2013/07/10','2021/10/21',54,0,'56813892M');
-
--- Prueba comprobar_fecha_descarga_BI
--- FEC_DESCARGA > FECHA ACTUAL
-INSERT INTO descarga VALUES('663295','RTNoticias',0,43000744,'2021/10/21','Definitivamente odio RTNoticias!!!!!!');
--- FEC_DESCARGA < FECHA_FIN (aplicacion)
-INSERT INTO descarga VALUES('663295','RTNoticias',0,43000744,'2019/08/01','Definitivamente odio RTNoticias!!!!!!');

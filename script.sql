@@ -540,27 +540,29 @@ GROUP BY c.NOMBRE
 HAVING PUNTUACION_ACUMULADA > 100
 ORDER BY PUNTUACION_ACUMULADA DESC;
 
--- Consulta 12. Obtener DNI y telefono de aquellos empleados que se hayan descargado 8 aplicaciones
+-- Consulta 12. Obtener DNI y telefono de aquellos empleados que se hayan descargado 7 aplicaciones o menos
 SELECT distinct(e.TLFNO_MOVIL), e.DNI, count(d.NOMBRE) as NUM_DESCARGAS
 FROM empleado AS e RIGHT JOIN descarga AS d
 ON d.NUM_MOVIL = e.TLFNO_MOVIL
 WHERE e.TLFNO_MOVIL IS NOT NULL
 GROUP BY e.TLFNO_MOVIL
-HAVING NUM_DESCARGAS = 8
+HAVING NUM_DESCARGAS <= 7
 ORDER BY NUM_DESCARGAS DESC;
 
--- Consulta 13. Consultar empleados con entre 1 y 3 annos de experiencia, cuyas aplicaciones en las que hayan participado tengan una media de puntuacion mayor a 3
+-- Consulta 13. Consultar empleados con entre 1 y 3 annos de experiencia, cuyas aplicaciones en las que hayan participado tengan una media de puntuacion mayor a 2.5. 
+-- Además, las aplicaciones en las que hayan participado deben tener un número de descargas superior a 40
 SELECT e.*
 FROM empleado AS e INNER JOIN realiza AS r ON e.DNI = r.DNI
 INNER JOIN aplicacion AS a ON r.NOMBRE = a.NOMBRE
 INNER JOIN descarga AS d ON a.NOMBRE = d.NOMBRE
+INNER JOIN (SELECT NOMBRE FROM descarga GROUP BY NOMBRE HAVING count(NOMBRE) > 40) as d_aux ON d.NOMBRE = d_aux.NOMBRE
 WHERE e.DNI IN 
 (SELECT distinct(t.DNI)
 FROM empleado AS e INNER JOIN trabaja AS t ON e.DNI = t.DNI
 GROUP BY t.DNI
 HAVING sum(timestampdiff(year, t.FECHA_INI, t.FECHA_FIN)) BETWEEN 1 AND 3)
 GROUP BY DNI
-HAVING avg(d.PUNTUACION) > 3;
+HAVING avg(d.PUNTUACION) > 2.5;
 
 -- Consulta 14. Consultar las aplicaciones realizadas entre los annos 2012 y 2016, cuyo espacio en memoria no supere los 100 MB y el porcentaje de descargas
 -- (con respecto al numero total de usuarios) sea mayor al 60 %
@@ -574,7 +576,7 @@ GROUP BY NOMBRE
 HAVING count(*) * 100 / (SELECT count(*) FROM usuario) > 60);
 
 -- Consulta 15. Consultar empleados de entre 2 y 4 annos de experiencia en el desarrollo de aplicaciones de "Estilo de vida" gratuitas, junto con
--- empleados que hayan participado en mas de un proyecto de aplicaciones de "Entretenimiento", tambien gratuitas, cuya extension de correo NO sea gmail.
+-- empleados que hayan participado en mas de un proyecto de aplicaciones de "Entretenimiento", tambien gratuitas, cuya extension de correo NO sea gmail
 SELECT *
 FROM empleado
 WHERE DNI IN

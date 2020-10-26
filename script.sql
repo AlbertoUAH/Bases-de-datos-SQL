@@ -502,18 +502,18 @@ INNER JOIN descarga AS d ON a.NOMBRE = d.NOMBRE
 GROUP BY c.NOMBRE_TIENDA
 ORDER BY NUM_DESCARGAS;
 
--- Consulta 8. Obtener los ingresos totales de las aplicaciones (solo de pago) descargadas
+-- Consulta 8. Obtener los ingresos totales de las aplicaciones (solo de pago) descargadas, cuyo precio este por debajo de la media
 SELECT NOMBRE, round(PRECIO * descargas_por_app.DESCARGAS,2) as INGRESOS
 FROM aplicacion INNER JOIN 
 (SELECT NOMBRE, count(NOMBRE) as DESCARGAS
 FROM descarga
 GROUP BY NOMBRE) as descargas_por_app USING(NOMBRE)
-WHERE PRECIO != 0;
+WHERE PRECIO != 0 AND PRECIO < (SELECT avg(PRECIO) FROM aplicacion WHERE PRECIO != 0);
 
 -- Consulta 9. Obtener el precio y espacio de memoria medio de las aplicaciones de pago, que NO sean nativas (NO esten en una unica tienda) 
-SELECT NOMBRE, round(avg(PRECIO),2) as PRECIO_MEDIO, round(avg(ESPACIO),2) as ESPACIO_MEDIO
+SELECT round(avg(PRECIO),2) as PRECIO_MEDIO, round(avg(ESPACIO),2) as ESPACIO_MEDIO
 FROM aplicacion
-WHERE PRECIO != 0 AND NOMBRE NOT IN
+WHERE  PRECIO != 0 AND NOMBRE NOT IN
 (SELECT NOMBRE_APLICACION
 FROM contiene
 GROUP BY NOMBRE_APLICACION
@@ -567,8 +567,7 @@ HAVING count(*) * 100 / (SELECT count(*) FROM usuario) > 40);
 SELECT e.*
 FROM empleado AS e INNER JOIN realiza AS r ON e.DNI = r.DNI
 INNER JOIN aplicacion AS a ON r.NOMBRE = a.NOMBRE
-INNER JOIN descarga AS d ON a.NOMBRE = d.NOMBRE
-INNER JOIN (SELECT NOMBRE FROM descarga GROUP BY NOMBRE HAVING count(NOMBRE) > 30 AND avg(PUNTUACION) > 3) as d_aux ON d.NOMBRE = d_aux.NOMBRE
+INNER JOIN (SELECT NOMBRE FROM descarga GROUP BY NOMBRE HAVING count(NOMBRE) > 30 AND avg(PUNTUACION) > 3) as descarga ON r.NOMBRE = descarga.NOMBRE
 WHERE e.DNI IN 
 (SELECT distinct(t.DNI)
 FROM empleado AS e INNER JOIN trabaja AS t ON e.DNI = t.DNI
@@ -577,7 +576,7 @@ HAVING sum(timestampdiff(year, t.FECHA_INI, t.FECHA_FIN)) BETWEEN 2 AND 5)
 GROUP BY e.DNI;
 
 -- Consulta 15. Consultar empleados con mas de 3 annos de experiencia en el desarrollo de aplicaciones de "Entretenimiento" gratuitas, junto con
--- empleados que hayan participado en mas de un proyecto de aplicaciones de categoria "Social" o "Fotografia", tambien gratuitas, cuya extension de correo NO sea gmail
+-- empleados que hayan participado en mas de un proyecto de aplicaciones de categoria "Social" o "Fotografia", tambien gratuitas, cuya extension de correo en ambos casos NO sea gmail
 SELECT *
 FROM empleado
 WHERE DNI IN

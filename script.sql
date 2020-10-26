@@ -549,16 +549,17 @@ GROUP BY e.TLFNO_MOVIL
 HAVING NUM_DESCARGAS <= 7
 ORDER BY NUM_DESCARGAS DESC;
 
--- Consulta 13. Consultar las aplicaciones realizadas entre los annos 2012 y 2016, cuyo espacio en memoria no supere los 100 MB y el porcentaje de descargas
--- (con respecto al numero total de usuarios) sea mayor al 60 %
+-- Consulta 13. Consultar las aplicaciones realizadas entre los annos 2010 y 2020, cuyo espacio en memoria no supere los 100 MB, tenga mas de 3 categorias
+-- y que el porcentaje de descargas (con respecto al numero total de usuarios) sea mayor al 40 %
 SELECT distinct(a.NOMBRE)
 FROM aplicacion AS a INNER JOIN descarga AS d ON a.NOMBRE = d.NOMBRE
-WHERE year(a.FECHA_INI) >= 2012 AND year(a.FECHA_FIN) <= 2016 
+INNER JOIN (SELECT NOMBRE FROM categoria_aplicacion GROUP BY NOMBRE HAVING count(NOMBRE) > 3) AS t ON d.NOMBRE = t.NOMBRE
+WHERE year(a.FECHA_INI) >= 2010 AND year(a.FECHA_FIN) <= 2020
 AND a.ESPACIO < 100 AND a.NOMBRE IN
 (SELECT NOMBRE
 FROM descarga
 GROUP BY NOMBRE
-HAVING count(*) * 100 / (SELECT count(*) FROM usuario) > 60);
+HAVING count(*) * 100 / (SELECT count(*) FROM usuario) > 40);
 
 -- Consulta 14. Consultar empleados con entre 1 y 3 annos de experiencia, cuyas aplicaciones en las que hayan participado tengan una media de puntuacion mayor a 2.5. 
 -- Además, las aplicaciones en las que hayan participado deben tener un número de descargas superior a 40

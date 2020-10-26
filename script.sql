@@ -492,7 +492,7 @@ WHERE a.EMPLEADO_DNI IS NULL AND emp.NOMBRE = 'ItalicSystems';
 SELECT distinct(a.NOMBRE), timestampdiff(month, a.FECHA_INI, a.FECHA_FIN) as MESES, count(d.NOMBRE) as DESCARGAS
 FROM aplicacion AS a INNER JOIN descarga AS d USING(NOMBRE)
 GROUP BY a.nombre
-ORDER BY MESES, DESCARGAS DESC
+ORDER BY MESES ASC, DESCARGAS DESC
 LIMIT 1;
 
 -- Consulta 7. Obtener el numero de descargas, agrupadas por tienda (de menos a mas descargas)
@@ -549,35 +549,35 @@ GROUP BY e.TLFNO_MOVIL
 HAVING NUM_DESCARGAS <= 7
 ORDER BY NUM_DESCARGAS DESC;
 
--- Consulta 13. Consultar las aplicaciones realizadas entre los annos 2010 y 2020, cuyo espacio en memoria no supere los 100 MB, tenga mas de 3 categorias
+-- Consulta 13. Consultar las aplicaciones con mas de 2 categorias, realizadas entre los annos 2014 y 2020, cuyo espacio en memoria no supere los 60 MB, 
 -- y que el porcentaje de descargas (con respecto al numero total de usuarios) sea mayor al 40 %
 SELECT distinct(a.NOMBRE)
 FROM aplicacion AS a INNER JOIN descarga AS d ON a.NOMBRE = d.NOMBRE
-INNER JOIN (SELECT NOMBRE FROM categoria_aplicacion GROUP BY NOMBRE HAVING count(NOMBRE) > 3) AS t ON d.NOMBRE = t.NOMBRE
-WHERE year(a.FECHA_INI) >= 2010 AND year(a.FECHA_FIN) <= 2020
-AND a.ESPACIO < 100 AND a.NOMBRE IN
+INNER JOIN
+(SELECT NOMBRE FROM categoria_aplicacion GROUP BY NOMBRE HAVING count(NOMBRE) > 2) AS t ON d.NOMBRE = t.NOMBRE
+WHERE year(a.FECHA_INI) >= 2014 AND year(a.FECHA_FIN) <= 2020
+AND a.ESPACIO < 60 AND a.NOMBRE IN
 (SELECT NOMBRE
 FROM descarga
 GROUP BY NOMBRE
 HAVING count(*) * 100 / (SELECT count(*) FROM usuario) > 40);
 
--- Consulta 14. Consultar empleados con entre 1 y 3 annos de experiencia, cuyas aplicaciones en las que hayan participado tengan una media de puntuacion mayor a 2.5. 
--- Además, las aplicaciones en las que hayan participado deben tener un número de descargas superior a 40
+-- Consulta 14. Consultar empleados cuyas aplicaciones en las que hayan participado tengan un numero de descargas superior a 30
+-- y una puntuacion media mayor a 3. Ademas, dichos empleados deben tener entre 2 y 5 annos de experiencia.
 SELECT e.*
 FROM empleado AS e INNER JOIN realiza AS r ON e.DNI = r.DNI
 INNER JOIN aplicacion AS a ON r.NOMBRE = a.NOMBRE
 INNER JOIN descarga AS d ON a.NOMBRE = d.NOMBRE
-INNER JOIN (SELECT NOMBRE FROM descarga GROUP BY NOMBRE HAVING count(NOMBRE) > 40) as d_aux ON d.NOMBRE = d_aux.NOMBRE
+INNER JOIN (SELECT NOMBRE FROM descarga GROUP BY NOMBRE HAVING count(NOMBRE) > 30 AND avg(PUNTUACION) > 3) as d_aux ON d.NOMBRE = d_aux.NOMBRE
 WHERE e.DNI IN 
 (SELECT distinct(t.DNI)
 FROM empleado AS e INNER JOIN trabaja AS t ON e.DNI = t.DNI
 GROUP BY t.DNI
-HAVING sum(timestampdiff(year, t.FECHA_INI, t.FECHA_FIN)) BETWEEN 1 AND 3)
-GROUP BY DNI
-HAVING avg(d.PUNTUACION) > 2.5;
+HAVING sum(timestampdiff(year, t.FECHA_INI, t.FECHA_FIN)) BETWEEN 2 AND 5)
+GROUP BY e.DNI;
 
--- Consulta 15. Consultar empleados de entre 2 y 4 annos de experiencia en el desarrollo de aplicaciones de "Estilo de vida" gratuitas, junto con
--- empleados que hayan participado en mas de un proyecto de aplicaciones de "Entretenimiento", tambien gratuitas, cuya extension de correo NO sea gmail
+-- Consulta 15. Consultar empleados con mas de 3 annos de experiencia en el desarrollo de aplicaciones de "Entretenimiento" gratuitas, junto con
+-- empleados que hayan participado en mas de un proyecto de aplicaciones de categoria "Social" o "Fotografia", tambien gratuitas, cuya extension de correo NO sea gmail
 SELECT *
 FROM empleado
 WHERE DNI IN
@@ -587,11 +587,11 @@ FROM realiza AS r
 INNER JOIN aplicacion AS a ON r.NOMBRE = a.NOMBRE
 INNER JOIN categoria_aplicacion AS c_a ON a.NOMBRE = c_a.NOMBRE
 INNER JOIN categoria AS c ON c_a.ID_CATEGORIA = c.ID_CATEGORIA
-WHERE c.NOMBRE = 'Estilo de vida' AND a.PRECIO = 0 AND r.DNI IN 
+WHERE c.NOMBRE = 'Entretenimiento' AND a.PRECIO = 0 AND r.DNI IN 
 (SELECT distinct(t.DNI)
 FROM trabaja AS t
 GROUP BY t.DNI
-HAVING sum(timestampdiff(year, t.FECHA_INI, t.FECHA_FIN)) BETWEEN 2 AND 4))
+HAVING sum(timestampdiff(year, t.FECHA_INI, t.FECHA_FIN)) > 3))
 
 UNION
 
@@ -599,6 +599,6 @@ UNION
 FROM realiza AS r INNER JOIN aplicacion AS a ON r.NOMBRE = a.NOMBRE
 INNER JOIN categoria_aplicacion AS c_a ON a.NOMBRE = c_a.NOMBRE
 INNER JOIN categoria AS c ON c_a.ID_CATEGORIA = c.ID_CATEGORIA
-WHERE c.NOMBRE = 'Entretenimiento'  AND a.PRECIO = 0
+WHERE c.NOMBRE IN ('Social', 'Fotografia')  AND a.PRECIO = 0
 GROUP BY r.DNI
 HAVING count(r.DNI) > 1)) AND CORREO NOT LIKE '%@gmail%';

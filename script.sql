@@ -455,7 +455,14 @@ SELECT t.DNI, e.NOMBRE, t.FECHA_INI, t.FECHA_FIN
 FROM trabaja AS t INNER JOIN (SELECT DNI FROM trabaja GROUP BY DNI HAVING count(DNI) > 1) AS t_2
 ON t.DNI = t_2.DNI INNER JOIN empresa AS e ON t.VAT = e.VAT;
 
--- Consulta 3. Obtener el pais de los usuarios que mas aplicaciones se han descargado (y el que menos)
+-- Consulta 3. Obtener el DNI del empleado con menos experiencia laboral (en meses)
+SELECT e.DNI, sum(timestampdiff(month, t.FECHA_INI, t.FECHA_FIN)) as MESES
+FROM empleado AS e INNER JOIN trabaja AS t USING(DNI)
+GROUP BY e.DNI
+ORDER BY MESES
+LIMIT 1;
+
+-- Consulta 4. Obtener el pais de los usuarios que mas aplicaciones se han descargado (y el que menos)
 SELECT descargas.PAIS, max(descargas.NUM_DESCARGAS) AS DESCARGAS
 FROM
 (SELECT PAIS, count(PAIS) as NUM_DESCARGAS
@@ -471,13 +478,6 @@ FROM
 FROM usuario INNER JOIN descarga USING(NUM_CUENTA)
 GROUP BY PAIS
 ORDER BY NUM_DESCARGAS) as descargas;
-
--- Consulta 4. Obtener el DNI del empleado con menos experiencia laboral (en meses)
-SELECT e.DNI, sum(timestampdiff(month, t.FECHA_INI, t.FECHA_FIN)) as MESES
-FROM empleado AS e INNER JOIN trabaja AS t USING(DNI)
-GROUP BY e.DNI
-ORDER BY MESES
-LIMIT 1;
 
 -- Consulta 5. Obtener DNI, correo y movil de aquellos empleados que NO hayan sido responsables de alguna aplicacion,
 -- pertenecientes a la empresa ItalicSystems
@@ -549,7 +549,18 @@ GROUP BY e.TLFNO_MOVIL
 HAVING NUM_DESCARGAS <= 7
 ORDER BY NUM_DESCARGAS DESC;
 
--- Consulta 13. Consultar empleados con entre 1 y 3 annos de experiencia, cuyas aplicaciones en las que hayan participado tengan una media de puntuacion mayor a 2.5. 
+-- Consulta 13. Consultar las aplicaciones realizadas entre los annos 2012 y 2016, cuyo espacio en memoria no supere los 100 MB y el porcentaje de descargas
+-- (con respecto al numero total de usuarios) sea mayor al 60 %
+SELECT distinct(a.NOMBRE)
+FROM aplicacion AS a INNER JOIN descarga AS d ON a.NOMBRE = d.NOMBRE
+WHERE year(a.FECHA_INI) >= 2012 AND year(a.FECHA_FIN) <= 2016 
+AND a.ESPACIO < 100 AND a.NOMBRE IN
+(SELECT NOMBRE
+FROM descarga
+GROUP BY NOMBRE
+HAVING count(*) * 100 / (SELECT count(*) FROM usuario) > 60);
+
+-- Consulta 14. Consultar empleados con entre 1 y 3 annos de experiencia, cuyas aplicaciones en las que hayan participado tengan una media de puntuacion mayor a 2.5. 
 -- Además, las aplicaciones en las que hayan participado deben tener un número de descargas superior a 40
 SELECT e.*
 FROM empleado AS e INNER JOIN realiza AS r ON e.DNI = r.DNI
@@ -563,17 +574,6 @@ GROUP BY t.DNI
 HAVING sum(timestampdiff(year, t.FECHA_INI, t.FECHA_FIN)) BETWEEN 1 AND 3)
 GROUP BY DNI
 HAVING avg(d.PUNTUACION) > 2.5;
-
--- Consulta 14. Consultar las aplicaciones realizadas entre los annos 2012 y 2016, cuyo espacio en memoria no supere los 100 MB y el porcentaje de descargas
--- (con respecto al numero total de usuarios) sea mayor al 60 %
-SELECT distinct(a.NOMBRE)
-FROM aplicacion AS a INNER JOIN descarga AS d ON a.NOMBRE = d.NOMBRE
-WHERE year(a.FECHA_INI) >= 2012 AND year(a.FECHA_FIN) <= 2016 
-AND a.ESPACIO < 100 AND a.NOMBRE IN
-(SELECT NOMBRE
-FROM descarga
-GROUP BY NOMBRE
-HAVING count(*) * 100 / (SELECT count(*) FROM usuario) > 60);
 
 -- Consulta 15. Consultar empleados de entre 2 y 4 annos de experiencia en el desarrollo de aplicaciones de "Estilo de vida" gratuitas, junto con
 -- empleados que hayan participado en mas de un proyecto de aplicaciones de "Entretenimiento", tambien gratuitas, cuya extension de correo NO sea gmail

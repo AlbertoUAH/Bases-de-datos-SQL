@@ -613,29 +613,18 @@ GROUP BY t.DNI
 HAVING sum(timestampdiff(year, t.FECHA_INI, t.FECHA_FIN)) BETWEEN 2 AND 5)
 GROUP BY e.DNI;
 
--- Consulta 16. Consultar empleados con mas de 3 annos de experiencia en el desarrollo de aplicaciones de "Entretenimiento" gratuitas, junto con
--- empleados que hayan participado en mas de un proyecto de aplicaciones de categoria "Social" o "Fotografia", tambien gratuitas, cuya extension de correo en ambos casos NO sea gmail
-SELECT *
-FROM empleado
-WHERE DNI IN
-
-((SELECT distinct(r.DNI)
-FROM realiza AS r
-INNER JOIN aplicacion AS a ON r.NOMBRE = a.NOMBRE
+-- Consulta 16. Consultar aquellas empresas que hayan participado en dos o mas aplicaciones de tipo Social o de Entretenimiento, que tengan menos de 4 ceros
+-- en las puntuaciones por parte de los usuarios y cuyos empleados hayan estado presenten en el desarrollo de toda la aplicacion
+SELECT distinct(e.VAT)
+FROM empresa AS e INNER JOIN crea AS c ON e.VAT = c.VAT
+INNER JOIN trabaja AS t ON e.VAT = t.VAT
+INNER JOIN aplicacion AS a ON c.NOMBRE = a.NOMBRE
 INNER JOIN categoria_aplicacion AS c_a ON a.NOMBRE = c_a.NOMBRE
-INNER JOIN categoria AS c ON c_a.ID_CATEGORIA = c.ID_CATEGORIA
-WHERE c.NOMBRE = 'Entretenimiento' AND a.PRECIO = 0 AND r.DNI IN 
-(SELECT distinct(t.DNI)
-FROM trabaja AS t
-GROUP BY t.DNI
-HAVING sum(timestampdiff(year, t.FECHA_INI, t.FECHA_FIN)) > 3))
+INNER JOIN categoria AS ca ON c_a.ID_CATEGORIA = ca.ID_CATEGORIA
+WHERE ca.NOMBRE IN ('Social', 'Entretenimiento') AND c.NOMBRE IN
 
-UNION
+(SELECT NOMBRE FROM (SELECT NOMBRE, count(PUNTUACION) AS CEROS FROM descarga WHERE PUNTUACION = 0 GROUP BY NOMBRE HAVING CEROS < 4) AS t)
 
-(SELECT distinct(r.DNI)
-FROM realiza AS r INNER JOIN aplicacion AS a ON r.NOMBRE = a.NOMBRE
-INNER JOIN categoria_aplicacion AS c_a ON a.NOMBRE = c_a.NOMBRE
-INNER JOIN categoria AS c ON c_a.ID_CATEGORIA = c.ID_CATEGORIA
-WHERE c.NOMBRE IN ('Social', 'Fotografia')  AND a.PRECIO = 0
-GROUP BY r.DNI
-HAVING count(r.DNI) > 1)) AND CORREO NOT LIKE '%@gmail%';
+AND t.FECHA_INI <= a.FECHA_INI AND t.FECHA_FIN >= a.FECHA_FIN
+GROUP BY c.VAT
+HAVING count(c.VAT) >= 2;

@@ -5,6 +5,7 @@ USE APPS_MOVILES;
 
 -- 2. BORRAMOS LAS TABLAS, SI EXISTEN
 DROP TABLE IF EXISTS TRABAJA;
+DROP TABLE IF EXISTS CREA;
 DROP TABLE IF EXISTS REALIZA;
 DROP TABLE IF EXISTS CONTIENE;
 DROP TABLE IF EXISTS DESCARGA;
@@ -122,9 +123,8 @@ CREATE TABLE APLICACION (
 	se eliminan en cascada, pues estaria haciendo referencia a un
 	empleado que ya no existe (CASCADE). 
 	Por el contrario, si el nombre de la aplicacion desaparece, 
-	la tabla se mantendria igual (RESTRICT), dado que la aplicacion 
-	podria seguir estando disponible a los usuarios, independientemente 
-	del responsable.
+	la tabla se mantendria igual (RESTRICT), lo que perimtiria conocer
+	la experiencia de cada empleado en el desarrollo de aplicaciones
 	- Si el DNI o el nombre se actualiza, la actualizacion tambien
 	se produce en dicha tabla (CASCADE)
 */
@@ -139,6 +139,34 @@ CREATE TABLE REALIZA (
     FOREIGN KEY (NOMBRE)
     REFERENCES  APLICACION (NOMBRE)
     ON DELETE RESTRICT
+    ON UPDATE CASCADE);
+
+-- CREA	
+/*
+	Las claves foráneas son tambien PKs, con el
+	objetivo de identificar que aplicaciones realiza
+	cada empresa, y viceversa.
+	- Si el nombre de la aplicacion desaparece, sus valores en la tabla
+	se eliminan en cascada, pues estaria haciendo referencia a una
+	aplicacion que ya no existe (CASCADE).
+	Por el contrario, si el codigo de la empresa desaparece, la tabla 
+	se mantendria igual (RESTRICT), ya que una aplicacion puede haberse
+	desarrollado por mas de una empresa, por lo que si se elimina, el numero
+	de empresas que han participado seria inferior al real.
+	- Si el VAT o nombre de aplicacion se actualiza, la actualización también
+	se produce en dicha tabla (CASCADE)
+*/
+CREATE TABLE CREA (
+  VAT VARCHAR(12) NOT NULL,
+  NOMBRE VARCHAR(35) NOT NULL,
+  PRIMARY KEY (VAT, NOMBRE),
+    FOREIGN KEY (VAT)
+    REFERENCES EMPRESA (VAT)
+    ON DELETE RESTRICT
+    ON UPDATE CASCADE,
+    FOREIGN KEY (NOMBRE)
+    REFERENCES  APLICACION (NOMBRE)
+    ON DELETE CASCADE
     ON UPDATE CASCADE);
 
 -- TIENDA
@@ -290,6 +318,11 @@ LINES TERMINATED BY '\n';
 
 LOAD DATA CONCURRENT INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/realiza.csv' 
 INTO TABLE realiza 
+FIELDS TERMINATED BY ','
+LINES TERMINATED BY '\n';
+
+LOAD DATA CONCURRENT INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/crea.csv' 
+INTO TABLE crea
 FIELDS TERMINATED BY ','
 LINES TERMINATED BY '\n';
 
@@ -450,19 +483,27 @@ GROUP BY FEC_DESCARGA
 ORDER BY NUM_DESCARGAS DESC
 LIMIT 1;
 
--- Consulta 2. Obtener aquellos empleados que hayan estado en mas de una empresa (o en la misma empresa mas de una vez)
-SELECT t.DNI, e.NOMBRE, t.FECHA_INI, t.FECHA_FIN
-FROM trabaja AS t INNER JOIN (SELECT DNI FROM trabaja GROUP BY DNI HAVING count(DNI) > 1) AS t_2
-ON t.DNI = t_2.DNI INNER JOIN empresa AS e ON t.VAT = e.VAT;
+-- Consulta 2. Obtener las 3 empresas que haya participado mas veces en el desarrollo de aplicaciones
+SELECT e.*, count(c.VAT) AS PARTICIPACIONES
+FROM empresa AS e INNER JOIN crea AS c USING(VAT)
+GROUP BY c.VAT
+ORDER BY PARTICIPACIONES DESC
+LIMIT 3;
 
--- Consulta 3. Obtener el DNI del empleado con menos experiencia laboral (en meses)
+-- Consulta 3. Obtener aquellos empleados que hayan estado en mas de una empresa (o en la misma empresa mas de una vez), que tengan extension gmail
+SELECT emp.*
+FROM empleado AS emp INNER JOIN (SELECT DNI FROM trabaja GROUP BY DNI HAVING count(DNI) > 1) AS t
+ON emp.DNI = t.DNI
+WHERE CORREO LIKE '%@gmail%';
+
+-- Consulta 4. Obtener el DNI del empleado con menos experiencia laboral (en meses)
 SELECT e.DNI, sum(timestampdiff(month, t.FECHA_INI, t.FECHA_FIN)) as MESES
 FROM empleado AS e INNER JOIN trabaja AS t USING(DNI)
 GROUP BY e.DNI
 ORDER BY MESES
 LIMIT 1;
 
--- Consulta 4. Obtener el pais de los usuarios que mas aplicaciones se han descargado (y el que menos)
+-- Consulta 5. Obtener el pais de los usuarios que mas aplicaciones se han descargado (y el que menos)
 SELECT descargas.PAIS, max(descargas.NUM_DESCARGAS) AS DESCARGAS
 FROM
 (SELECT PAIS, count(PAIS) as NUM_DESCARGAS
@@ -479,7 +520,7 @@ FROM usuario INNER JOIN descarga USING(NUM_CUENTA)
 GROUP BY PAIS
 ORDER BY NUM_DESCARGAS) as descargas;
 
--- Consulta 5. Obtener DNI, correo y movil de aquellos empleados que NO hayan sido responsables de alguna aplicacion,
+-- Consulta 6. Obtener DNI, correo y movil de aquellos empleados que NO hayan sido responsables de alguna aplicacion,
 -- pertenecientes a la empresa ItalicSystems
 SELECT distinct(e.DNI), e.CORREO, e.TLFNO_MOVIL
 FROM empresa AS emp INNER JOIN trabaja AS t ON emp.VAT = t.VAT
@@ -488,29 +529,30 @@ INNER JOIN realiza AS r ON e.DNI = r.DNI
 LEFT JOIN aplicacion AS a ON r.DNI = a.EMPLEADO_DNI
 WHERE a.EMPLEADO_DNI IS NULL AND emp.NOMBRE = 'ItalicSystems';
 
--- Consulta 6. Obtener la aplicacion que menos tiempo haya requerido (en meses) y que haya obtenido un mayor numero de descargas
-SELECT distinct(a.NOMBRE), timestampdiff(month, a.FECHA_INI, a.FECHA_FIN) as MESES, count(d.NOMBRE) as DESCARGAS
+-- Consulta 7. Obtener la aplicacion que menos tiempo haya requerido (en meses) y que haya obtenido un mayor numero de descargas
+SELECT a.NOMBRE, timestampdiff(month, a.FECHA_INI, a.FECHA_FIN) as MESES, count(d.NOMBRE) as DESCARGAS
 FROM aplicacion AS a INNER JOIN descarga AS d USING(NOMBRE)
 GROUP BY a.nombre
 ORDER BY MESES ASC, DESCARGAS DESC
 LIMIT 1;
 
--- Consulta 7. Obtener el numero de descargas, agrupadas por tienda (de menos a mas descargas)
+-- Consulta 8. Obtener el numero de descargas, agrupadas por tienda (de menos a mas descargas)
 SELECT c.NOMBRE_TIENDA, count(d.NOMBRE) as NUM_DESCARGAS
 FROM contiene AS c INNER JOIN aplicacion AS a ON c.NOMBRE_APLICACION = a.NOMBRE
 INNER JOIN descarga AS d ON a.NOMBRE = d.NOMBRE
 GROUP BY c.NOMBRE_TIENDA
 ORDER BY NUM_DESCARGAS;
 
--- Consulta 8. Obtener los ingresos totales de las aplicaciones (solo de pago) descargadas, cuyo precio este por debajo de la media
-SELECT NOMBRE, round(PRECIO * descargas_por_app.DESCARGAS,2) as INGRESOS
-FROM aplicacion INNER JOIN 
+-- Consulta 9. Obtener los ingresos totales de las empresas gracias a las aplicaciones (solo de pago) descargadas, cuyo precio este por debajo de la media
+SELECT c.VAT, round(PRECIO * descargas_por_app.DESCARGAS,2) as INGRESOS
+FROM crea AS c INNER JOIN aplicacion AS a ON c.NOMBRE = a.NOMBRE
+INNER JOIN 
 (SELECT NOMBRE, count(NOMBRE) as DESCARGAS
 FROM descarga
-GROUP BY NOMBRE) as descargas_por_app USING(NOMBRE)
+GROUP BY NOMBRE) as descargas_por_app ON c.NOMBRE = descargas_por_app.NOMBRE 
 WHERE PRECIO != 0 AND PRECIO < (SELECT avg(PRECIO) FROM aplicacion WHERE PRECIO != 0);
 
--- Consulta 9. Obtener el precio y espacio de memoria medio de las aplicaciones de pago, que NO sean nativas (NO esten en una unica tienda) 
+-- Consulta 10. Obtener el precio y espacio de memoria medio de las aplicaciones de pago, que NO sean nativas (NO esten en una unica tienda) 
 SELECT round(avg(PRECIO),2) as PRECIO_MEDIO, round(avg(ESPACIO),2) as ESPACIO_MEDIO
 FROM aplicacion
 WHERE  PRECIO != 0 AND NOMBRE NOT IN
@@ -519,29 +561,25 @@ FROM contiene
 GROUP BY NOMBRE_APLICACION
 HAVING count(NOMBRE_TIENDA) = 1);
 
--- Consulta 10. Obtener el VAT y nombre del top 3 empresas que mas participaciones (empleados) ha tenido
--- en el desarrollo de aplicaciones nativas (esten en una unica tienda)
-SELECT e.VAT, e.NOMBRE, count(r.DNI) as PARTICIPACIONES
-FROM empresa AS e INNER JOIN trabaja AS t ON e.VAT = t.VAT
-INNER JOIN empleado AS emp ON t.DNI = emp.DNI
-INNER JOIN realiza AS r ON emp.DNI = r.DNI
-INNER JOIN aplicacion AS a ON r.NOMBRE = a.NOMBRE
-WHERE a.NOMBRE IN (SELECT NOMBRE_APLICACION FROM contiene GROUP BY NOMBRE_APLICACION HAVING count(NOMBRE_TIENDA) = 1)
-GROUP BY e.VAT, e.NOMBRE
-ORDER BY PARTICIPACIONES DESC
-LIMIT 3;
+-- Consulta 11. Obtener el VAT y nombre de las empresas han participado en el desarrollo de aplicaciones nativas (esten en una unica tienda)
+SELECT e.VAT, e.NOMBRE
+FROM empresa AS e INNER JOIN crea AS c ON e.VAT = c.VAT
+INNER JOIN aplicacion AS a ON c.NOMBRE = a.NOMBRE
+WHERE a.NOMBRE IN (SELECT NOMBRE_APLICACION FROM contiene GROUP BY NOMBRE_APLICACION HAVING count(NOMBRE_TIENDA) = 1);
 
--- Consulta 11. Obtener las categorias con una puntuacion acumulada en sus aplicaciones mayor a 100
+-- Consulta 12. Obtener las categorias con una puntuacion acumulada en sus aplicaciones mayor a 100, cuyo pais de descarga sea Espana
 SELECT c.NOMBRE, sum(d.PUNTUACION) as PUNTUACION_ACUMULADA
 FROM categoria AS c INNER JOIN categoria_aplicacion AS c_a ON c.ID_CATEGORIA = c_a.ID_CATEGORIA
 INNER JOIN aplicacion AS a ON c_a.NOMBRE = a.NOMBRE
 INNER JOIN descarga AS d ON a.NOMBRE = d.NOMBRE
+INNER JOIN usuario AS u ON d.NUM_CUENTA = u.NUM_CUENTA
+WHERE u.PAIS = 'Espana'
 GROUP BY c.NOMBRE
 HAVING PUNTUACION_ACUMULADA > 100
 ORDER BY PUNTUACION_ACUMULADA DESC;
 
--- Consulta 12. Obtener DNI y telefono de aquellos empleados que se hayan descargado 7 aplicaciones o menos
-SELECT distinct(e.TLFNO_MOVIL), e.DNI, count(d.NOMBRE) as NUM_DESCARGAS
+-- Consulta 13. Obtener DNI y telefono de aquellos empleados que se hayan descargado 7 aplicaciones o menos
+SELECT e.TLFNO_MOVIL, e.DNI, count(d.NOMBRE) as NUM_DESCARGAS
 FROM empleado AS e RIGHT JOIN descarga AS d
 ON d.NUM_MOVIL = e.TLFNO_MOVIL
 WHERE e.TLFNO_MOVIL IS NOT NULL
@@ -549,7 +587,7 @@ GROUP BY e.TLFNO_MOVIL
 HAVING NUM_DESCARGAS <= 7
 ORDER BY NUM_DESCARGAS DESC;
 
--- Consulta 13. Consultar las aplicaciones con mas de 2 categorias, realizadas entre los annos 2014 y 2020, cuyo espacio en memoria no supere los 60 MB, 
+-- Consulta 14. Consultar las aplicaciones con mas de 2 categorias, realizadas entre los annos 2014 y 2020, cuyo espacio en memoria no supere los 60 MB, 
 -- y que el porcentaje de descargas (con respecto al numero total de usuarios) sea mayor al 40 %
 SELECT distinct(a.NOMBRE)
 FROM aplicacion AS a INNER JOIN descarga AS d ON a.NOMBRE = d.NOMBRE
@@ -562,7 +600,7 @@ FROM descarga
 GROUP BY NOMBRE
 HAVING count(*) * 100 / (SELECT count(*) FROM usuario) > 40);
 
--- Consulta 14. Consultar empleados cuyas aplicaciones en las que hayan participado tengan un numero de descargas superior a 30
+-- Consulta 15. Consultar empleados cuyas aplicaciones en las que hayan participado tengan un numero de descargas superior a 30
 -- y una puntuacion media mayor a 3. Ademas, dichos empleados deben tener entre 2 y 5 annos de experiencia.
 SELECT e.*
 FROM empleado AS e INNER JOIN realiza AS r ON e.DNI = r.DNI
@@ -575,7 +613,7 @@ GROUP BY t.DNI
 HAVING sum(timestampdiff(year, t.FECHA_INI, t.FECHA_FIN)) BETWEEN 2 AND 5)
 GROUP BY e.DNI;
 
--- Consulta 15. Consultar empleados con mas de 3 annos de experiencia en el desarrollo de aplicaciones de "Entretenimiento" gratuitas, junto con
+-- Consulta 16. Consultar empleados con mas de 3 annos de experiencia en el desarrollo de aplicaciones de "Entretenimiento" gratuitas, junto con
 -- empleados que hayan participado en mas de un proyecto de aplicaciones de categoria "Social" o "Fotografia", tambien gratuitas, cuya extension de correo en ambos casos NO sea gmail
 SELECT *
 FROM empleado

@@ -23,7 +23,7 @@ DROP TABLE IF EXISTS EMPLEADO;
 	Se ha elegido como PK el VAT de la empresa
 	dado que una empresa, salvo que se registre,
 	pueden tener el mismo nombre, mientras que el VAT
-	es un identificativo unico
+	es un identificador unico
 */
 CREATE TABLE EMPRESA (
   VAT VARCHAR(12) PRIMARY KEY,
@@ -56,9 +56,8 @@ CREATE TABLE EMPLEADO (
 
 	Todos los elementos de la tabla son PK (salvo FECHA_FIN), 
 	dado que un empleado no solo se identifica por su
-	DNI y VAT de la empresa en la que trabaja, sino
-	ademas por el intervalo de tiempo en el que trabajo
-	en dicha empresa.
+	DNI y VAT de la empresa en la que trabaja, dado que puede
+	trabajar en una misma empresa en diferentes periodos de tiempo
 	- Si el DNI del empleado desaparece, sus valores en la tabla
 	se eliminan en cascada, pues estaria haciendo referencia a un
 	empleado que ya no existe (CASCADE).
@@ -91,11 +90,12 @@ CREATE TABLE TRABAJA (
 	Ademas, el espacio de memoria de la aplicacion debe
 	ser mayor que cero.
 	
-	La columna espacio esta expresada en MB.
+	La columna ESPACIO esta expresada en MB.
 	- Si el DNI del empleado que dirige la aplicacion
 	desaparece, la aplicacion no desapareceria
 	(dado que continuaria funcionando y estando
-	disponible en tienda) (RESTRICT)
+	disponible en tienda), marcando unicamente como NULL
+	la clave foranea
 	- Si el DNI del jefe de proyecto se actualiza, la
 	actualizacion tambien se produce en dicha tabla (CASCADE)
 */
@@ -106,12 +106,12 @@ CREATE TABLE APLICACION (
   FECHA_FIN DATE NOT NULL,
   ESPACIO DOUBLE UNSIGNED NOT NULL COMMENT 'Espacio (en MB)',
   PRECIO DOUBLE UNSIGNED NOT NULL,
-  EMPLEADO_DNI CHAR(9) NOT NULL,
+  EMPLEADO_DNI CHAR(9),
   CHECK (FECHA_INI < FECHA_FIN),
   CHECK (ESPACIO > 0),
     FOREIGN KEY (EMPLEADO_DNI)
     REFERENCES EMPLEADO (DNI)
-    ON DELETE RESTRICT
+    ON DELETE SET NULL
     ON UPDATE CASCADE);
 
 -- REALIZA
@@ -123,7 +123,7 @@ CREATE TABLE APLICACION (
 	se eliminan en cascada, pues estaria haciendo referencia a un
 	empleado que ya no existe (CASCADE). 
 	Por el contrario, si el nombre de la aplicacion desaparece, 
-	la tabla se mantendria igual (RESTRICT), lo que perimtiria conocer
+	la tabla se mantendria igual (RESTRICT), lo que permitiria conocer
 	la experiencia de cada empleado en el desarrollo de aplicaciones
 	- Si el DNI o el nombre se actualiza, la actualizacion tambien
 	se produce en dicha tabla (CASCADE)
@@ -143,7 +143,7 @@ CREATE TABLE REALIZA (
 
 -- CREA	
 /*
-	Las claves foráneas son tambien PKs, con el
+	Las claves foraneas son tambien PKs, con el
 	objetivo de identificar que aplicaciones realiza
 	cada empresa, y viceversa.
 	- Si el nombre de la aplicacion desaparece, sus valores en la tabla
@@ -207,6 +207,7 @@ CREATE TABLE CONTIENE (
 
 -- CATEGORIA
 -- El campo ID_CATEGORIA se auto-incrementa, lo que permite insertar unicamente el campo NOMBRE
+-- para mayor comodidad
 CREATE TABLE CATEGORIA (
   ID_CATEGORIA INT AUTO_INCREMENT PRIMARY KEY,
   NOMBRE VARCHAR(20) UNIQUE NOT NULL);
@@ -236,6 +237,7 @@ CREATE TABLE CATEGORIA_APLICACION (
     ON UPDATE CASCADE);
 
 -- USUARIO
+-- Nota: si el numero de calle no existe, se incluye 's/n' por defecto
 CREATE TABLE USUARIO (
   NUM_CUENTA INT PRIMARY KEY,
   NOMBRE VARCHAR(50) UNIQUE NOT NULL,
@@ -283,6 +285,7 @@ CREATE TABLE DESCARGA (
 -- ------------------------------------------------------------------------------------------------------------------------
 -- 4. CARGA DATOS
 SET GLOBAL local_infile ='ON';
+
 -- Salvo la tabla categoria, el resto de tablas se cargan mediante ficheros .csv
 LOAD DATA CONCURRENT INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/empresas.csv' 
 INTO TABLE empresa 
@@ -358,7 +361,9 @@ DROP TRIGGER IF EXISTS comprobar_trabaja_en_aplicacion_BI;
 DROP PROCEDURE IF EXISTS comprobar_fecha;
 DROP FUNCTION IF EXISTS comprobar_letra_dni;
 
+-- Esta variable permite definir funciones en MySQL, de lo contrario fallaria por falta de permisos
 SET GLOBAL log_bin_trust_function_creators = 1;
+
 /*
 	Procedimiento encargado de comprobar si
 	una fecha pasada como parametro es mayor
@@ -379,7 +384,7 @@ END$$
 	pasado como parametro es valido o no. Para ello extrae
 	los numeros del DNI y, dividiendo entre 23, devuelve la letra
 	correspondiente.
-	Fuente: https://es.wikibooks.org/wiki/Algoritmia/Algoritmo_para_obtener_la_letra_del_NIF
+	Fuente: https://es.wikibooks.org/wiki/Algoritmia/Algoritmo_para_obtener_la_letra_del_NIF#PL-SQL
 
 */
 CREATE FUNCTION comprobar_letra_dni(dni CHAR(9))
@@ -391,7 +396,7 @@ BEGIN
 END$$
 
 /*
-	El procedimiento comprobar_fecha() se empleado
+	El procedimiento comprobar_fecha() se emplea
 	para los triggers:
 	
 		-> comprobar_fecha_fin_trabaja_BI: comprueba que
@@ -490,7 +495,8 @@ GROUP BY c.VAT
 ORDER BY PARTICIPACIONES DESC
 LIMIT 3;
 
--- Consulta 3. Obtener aquellos empleados que hayan estado en mas de una empresa (o en la misma empresa mas de una vez), que tengan extension gmail
+-- Consulta 3. Obtener aquellos empleados que hayan estado en mas de una empresa (o en la misma empresa mas de una vez),
+-- que tengan extension de correo @gmail
 SELECT emp.*
 FROM empleado AS emp INNER JOIN (SELECT DNI FROM trabaja GROUP BY DNI HAVING count(DNI) > 1) AS t
 ON emp.DNI = t.DNI
@@ -544,18 +550,18 @@ GROUP BY c.NOMBRE_TIENDA
 ORDER BY NUM_DESCARGAS;
 
 -- Consulta 9. Obtener los ingresos totales de las empresas gracias a las aplicaciones (solo de pago) descargadas, cuyo precio este por debajo de la media
-SELECT c.VAT, round(PRECIO * descargas_por_app.DESCARGAS,2) as INGRESOS
+SELECT c.VAT, round(a.PRECIO * descargas_por_app.DESCARGAS,2) as INGRESOS
 FROM crea AS c INNER JOIN aplicacion AS a ON c.NOMBRE = a.NOMBRE
 INNER JOIN 
 (SELECT NOMBRE, count(NOMBRE) as DESCARGAS
 FROM descarga
 GROUP BY NOMBRE) as descargas_por_app ON c.NOMBRE = descargas_por_app.NOMBRE 
-WHERE PRECIO != 0 AND PRECIO < (SELECT avg(PRECIO) FROM aplicacion WHERE PRECIO != 0);
+WHERE a.PRECIO != 0 AND a.PRECIO < (SELECT avg(PRECIO) FROM aplicacion WHERE PRECIO != 0);
 
 -- Consulta 10. Obtener el precio y espacio de memoria medio de las aplicaciones de pago, que NO sean nativas (NO esten en una unica tienda) 
 SELECT round(avg(PRECIO),2) as PRECIO_MEDIO, round(avg(ESPACIO),2) as ESPACIO_MEDIO
 FROM aplicacion
-WHERE  PRECIO != 0 AND NOMBRE NOT IN
+WHERE PRECIO != 0 AND NOMBRE NOT IN
 (SELECT NOMBRE_APLICACION
 FROM contiene
 GROUP BY NOMBRE_APLICACION
@@ -579,13 +585,20 @@ HAVING PUNTUACION_ACUMULADA > 100
 ORDER BY PUNTUACION_ACUMULADA DESC;
 
 -- Consulta 13. Obtener DNI y telefono de aquellos empleados que se hayan descargado 7 aplicaciones o menos
-SELECT e.TLFNO_MOVIL, e.DNI, count(d.NOMBRE) as NUM_DESCARGAS
-FROM empleado AS e RIGHT JOIN descarga AS d
-ON d.NUM_MOVIL = e.TLFNO_MOVIL
-WHERE e.TLFNO_MOVIL IS NOT NULL
-GROUP BY e.TLFNO_MOVIL
-HAVING NUM_DESCARGAS <= 7
-ORDER BY NUM_DESCARGAS DESC;
+SELECT e.TLFNO_MOVIL, e.DNI
+FROM empleado AS e
+WHERE EXISTS 
+(SELECT NUM_CUENTA, count(NOMBRE) as DESCARGAS 
+FROM descarga AS d 
+WHERE d.NUM_MOVIL = e.TLFNO_MOVIL
+GROUP BY NUM_CUENTA
+HAVING DESCARGAS <= 7);
+
+-- Si quisiera consultar los usuarios que no han descargado ninguna aplicacion
+SELECT u.*
+FROM usuario AS u LEFT JOIN descarga AS d
+ON u.NUM_CUENTA = d.NUM_CUENTA
+WHERE d.NUM_CUENTA IS NULL;
 
 -- Consulta 14. Consultar las aplicaciones con mas de 2 categorias, realizadas entre los annos 2014 y 2020, cuyo espacio en memoria no supere los 60 MB, 
 -- y que el porcentaje de descargas (con respecto al numero total de usuarios) sea mayor al 40 %
@@ -604,7 +617,6 @@ HAVING count(*) * 100 / (SELECT count(*) FROM usuario) > 40);
 -- y una puntuacion media mayor a 3. Ademas, dichos empleados deben tener entre 2 y 5 annos de experiencia.
 SELECT e.*
 FROM empleado AS e INNER JOIN realiza AS r ON e.DNI = r.DNI
-INNER JOIN aplicacion AS a ON r.NOMBRE = a.NOMBRE
 INNER JOIN (SELECT NOMBRE FROM descarga GROUP BY NOMBRE HAVING count(NOMBRE) > 30 AND avg(PUNTUACION) > 3) as descarga ON r.NOMBRE = descarga.NOMBRE
 WHERE e.DNI IN 
 (SELECT distinct(t.DNI)
@@ -614,17 +626,23 @@ HAVING sum(timestampdiff(year, t.FECHA_INI, t.FECHA_FIN)) BETWEEN 2 AND 5)
 GROUP BY e.DNI;
 
 -- Consulta 16. Consultar aquellas empresas que hayan participado en dos o mas aplicaciones de tipo Social o de Entretenimiento, que tengan menos de 4 ceros
--- en las puntuaciones por parte de los usuarios y cuyos empleados hayan estado presenten en el desarrollo de toda la aplicacion
-SELECT distinct(e.VAT)
-FROM empresa AS e INNER JOIN crea AS c ON e.VAT = c.VAT
-INNER JOIN trabaja AS t ON e.VAT = t.VAT
-INNER JOIN aplicacion AS a ON c.NOMBRE = a.NOMBRE
+-- en las puntuaciones por parte de los usuarios
+SELECT c.VAT
+FROM crea AS c
+WHERE c.NOMBRE IN 
+(
+SELECT distinct(a.NOMBRE)
+FROM aplicacion AS a
 INNER JOIN categoria_aplicacion AS c_a ON a.NOMBRE = c_a.NOMBRE
 INNER JOIN categoria AS ca ON c_a.ID_CATEGORIA = ca.ID_CATEGORIA
-WHERE ca.NOMBRE IN ('Social', 'Entretenimiento') AND c.NOMBRE IN
+WHERE ca.NOMBRE IN ('Social', 'Entretenimiento') AND a.NOMBRE IN
 
-(SELECT NOMBRE FROM (SELECT NOMBRE, count(PUNTUACION) AS CEROS FROM descarga WHERE PUNTUACION = 0 GROUP BY NOMBRE HAVING CEROS < 4) AS t)
+(SELECT distinct(NOMBRE) FROM descarga WHERE PUNTUACION = 0 GROUP BY NOMBRE HAVING count(PUNTUACION) < 4
 
-AND t.FECHA_INI <= a.FECHA_INI AND t.FECHA_FIN >= a.FECHA_FIN
+UNION
+
+SELECT distinct(d.NOMBRE) FROM descarga AS d WHERE NOT EXISTS (SELECT d_1.NOMBRE FROM descarga AS d_1 WHERE d_1.NOMBRE = d.NOMBRE AND d_1.PUNTUACION = 0))
+
+)
 GROUP BY c.VAT
 HAVING count(c.VAT) >= 2;

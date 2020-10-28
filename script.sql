@@ -1,3 +1,4 @@
+-- SCRIPT CREACION BASE DE DATOS
 -- 1. ELIMINAMOS LA BASE DE DATOS, SI EXISTE, Y CREAMOS UNA NUEVA
 DROP DATABASE IF EXISTS APPS_MOVILES;
 CREATE DATABASE APPS_MOVILES;
@@ -88,7 +89,7 @@ CREATE TABLE TRABAJA (
 	Nota: debe comprobarse (CHECK) que la fecha de inicio
 	sea menor a la fecha de fin del proyecto.
 	Ademas, el espacio de memoria de la aplicacion debe
-	ser mayor que cero.
+	ser mayor que cero, asi como el precio mayor o igual a cero (gratuito).
 	
 	La columna ESPACIO esta expresada en MB.
 	- Si el DNI del empleado que dirige la aplicacion
@@ -104,11 +105,12 @@ CREATE TABLE APLICACION (
   CODIGO INT UNSIGNED UNIQUE NOT NULL,
   FECHA_INI DATE NOT NULL,
   FECHA_FIN DATE NOT NULL,
-  ESPACIO DOUBLE UNSIGNED NOT NULL COMMENT 'Espacio (en MB)',
-  PRECIO DOUBLE UNSIGNED NOT NULL,
+  ESPACIO DOUBLE NOT NULL COMMENT 'Espacio (en MB)',
+  PRECIO DOUBLE NOT NULL,
   EMPLEADO_DNI CHAR(9),
   CHECK (FECHA_INI < FECHA_FIN),
   CHECK (ESPACIO > 0),
+  CHECK (PRECIO >= 0),
     FOREIGN KEY (EMPLEADO_DNI)
     REFERENCES EMPLEADO (DNI)
     ON DELETE SET NULL
@@ -287,12 +289,13 @@ CREATE TABLE DESCARGA (
 SET GLOBAL local_infile ='ON';
 
 -- Salvo la tabla categoria, el resto de tablas se cargan mediante ficheros .csv
-LOAD DATA CONCURRENT INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/empresas.csv' 
+-- Deben estar ubicado en la carpeta Uploads (C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/)
+LOAD DATA CONCURRENT INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/empresa.csv' 
 INTO TABLE empresa 
 FIELDS TERMINATED BY ','
 LINES TERMINATED BY '\n';
 
-LOAD DATA CONCURRENT INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/empleados.csv' 
+LOAD DATA CONCURRENT INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/empleado.csv' 
 INTO TABLE empleado 
 FIELDS TERMINATED BY ','
 LINES TERMINATED BY '\n';
